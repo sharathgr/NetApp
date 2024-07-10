@@ -1,0 +1,51 @@
+---
+- name: Create SnapMirror and Resync for volumes from SVM2 to SVM1
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Login to source host ABC
+      netapp.ontap.na_ontap_command:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        command: 'version'
+      register: login_source
+
+    - name: Collect all volumes from SVM2
+      netapp.ontap.na_ontap_volume:
+        hostname: "{{ target_host }}"
+        username: "{{ target_username }}"
+        password: "{{ target_password }}"
+        vserver: "{{ target_vserver }}"
+      register: volumes
+
+    - name: Filter volumes starting with dat_ and not containing root
+      set_fact:
+        filtered_volumes: >-
+          {{ volumes.results | selectattr('name', 'match', '^dat_.*') | rejectattr('name', 'search', 'root') | list }}
+
+    - name: Create SnapMirror relationships from SVM2 to SVM1
+      netapp.ontap.na_ontap_snapmirror:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        source_vserver: "{{ target_vserver }}"
+        source_volume: "{{ item.name }}"
+        dest_vserver: "{{ source_vserver }}"
+        dest_volume: "{{ item.name }}"
+        state: present
+        policy: mirror_hourly
+        type: async
+      loop: "{{ filtered_volumes }}"
+
+    - name: Resync SnapMirror relationships from SVM2 to SVM1
+      netapp.ontap.na_ontap_snapmirror:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        source_vserver: "{{ target_vserver }}"
+        dest_vserver: "{{ source_vserver }}"
+        state: present
+        resync: true
