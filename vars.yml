@@ -1,0 +1,5 @@
+# vars.yml
+target_host: XYZ
+target_vserver: SVM2
+source_host: ABC
+source_vserver: SVM1
