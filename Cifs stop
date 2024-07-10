@@ -1,0 +1,47 @@
+---
+- name: Stop CIFS server and Vserver
+  hosts: localhost
+  gather_facts: no
+  vars:
+    source_host: ABC
+    source_vserver: SVM1
+    cifs_server: FGH
+  tasks:
+    - name: Login to source host ABC
+      netapp.ontap.na_ontap_command:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        command: 'version'
+      register: login_source
+
+    - name: Fetch CIFS server details from SVM1
+      netapp.ontap.na_ontap_cifs:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        vserver: "{{ source_vserver }}"
+        name: "{{ cifs_server }}"
+      register: cifs_server_details
+
+    - name: Save CIFS server details to file
+      copy:
+        content: "{{ cifs_server_details }}"
+        dest: cifs_server_details.yml
+
+    - name: Stop CIFS server FGH on SVM1
+      netapp.ontap.na_ontap_cifs:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        vserver: "{{ source_vserver }}"
+        name: "{{ cifs_server }}"
+        state: stopped
+
+    - name: Stop Vserver SVM1
+      netapp.ontap.na_ontap_vserver:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        name: "{{ source_vserver }}"
+        state: stopped
