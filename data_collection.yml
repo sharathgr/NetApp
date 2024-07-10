@@ -1,0 +1,75 @@
+---
+- name: Data Collection for NetApp Failover
+  hosts: localhost
+  gather_facts: no
+  vars:
+    source_host: ABC
+    source_vserver: SVM1
+    target_host: XYZ
+    target_vserver: SVM2
+  tasks:
+    - name: Login to source host ABC
+      netapp.ontap.na_ontap_command:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        command: 'version'
+      register: login_source
+
+    - name: Collect all volumes replicating from SVM1 to SVM2
+      netapp.ontap.na_ontap_volume:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        vserver: "{{ source_vserver }}"
+      register: volumes
+
+    - name: Filter volumes starting with dat_ and not containing root
+      set_fact:
+        filtered_volumes: >-
+          {{ volumes.results | selectattr('name', 'match', '^dat_.*') | rejectattr('name', 'search', 'root') | list }}
+
+    - name: Get snapmirror list destination from SVM1
+      netapp.ontap.na_ontap_snapmirror:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        source_vserver: "{{ source_vserver }}"
+        dest_vserver: "{{ target_vserver }}"
+      register: snapmirror_list
+
+    - name: Get volume export policy names from SVM1
+      netapp.ontap.na_ontap_export_policy:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        vserver: "{{ source_vserver }}"
+      register: export_policies
+
+    - name: Get export policy rule details from SVM1
+      netapp.ontap.na_ontap_export_rule:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        vserver: "{{ source_vserver }}"
+        policy_name: "{{ item.policy_name }}"
+      loop: "{{ export_policies.results }}"
+      register: export_policy_rules
+
+    - name: Collect CIFS shares, path, and ACL of shares created on SVM1
+      netapp.ontap.na_ontap_cifs_share:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        vserver: "{{ source_vserver }}"
+      register: cifs_shares
+
+    - name: Save collected data to file
+      copy:
+        content: |
+          volumes: {{ filtered_volumes }}
+          snapmirror_list: {{ snapmirror_list }}
+          export_policies: {{ export_policies }}
+          export_policy_rules: {{ export_policy_rules }}
+          cifs_shares: {{ cifs_shares }}
+        dest: data_collection.yml
