@@ -1,0 +1,84 @@
+---
+- name: Data Application for NetApp Failover
+  hosts: localhost
+  gather_facts: no
+  vars:
+    source_host: ABC
+    source_vserver: SVM1
+    target_host: XYZ
+    target_vserver: SVM2
+  tasks:
+    - name: Load collected data
+      include_vars:
+        file: data_collection.yml
+
+    - name: Login to target host XYZ
+      netapp.ontap.na_ontap_command:
+        hostname: "{{ target_host }}"
+        username: "{{ target_username }}"
+        password: "{{ target_password }}"
+        command: 'version'
+      register: login_target
+
+    - name: Get snapmirror status for Vserver SVM2
+      netapp.ontap.na_ontap_snapmirror:
+        hostname: "{{ target_host }}"
+        username: "{{ target_username }}"
+        password: "{{ target_password }}"
+        dest_vserver: "{{ target_vserver }}"
+      register: snapmirror_status
+
+    - name: Create export policies on target SVM2
+      netapp.ontap.na_ontap_export_policy:
+        hostname: "{{ target_host }}"
+        username: "{{ target_username }}"
+        password: "{{ target_password }}"
+        vserver: "{{ target_vserver }}"
+        name: "{{ item.policy_name }}"
+      loop: "{{ export_policies.results }}"
+    
+    - name: Create export policy rules on target SVM2
+      netapp.ontap.na_ontap_export_rule:
+        hostname: "{{ target_host }}"
+        username: "{{ target_username }}"
+        password: "{{ target_password }}"
+        vserver: "{{ target_vserver }}"
+        policy_name: "{{ item.policy_name }}"
+        rule_index: "{{ item.rule_index }}"
+        client_match: "{{ item.client_match }}"
+        ro_rule: "{{ item.ro_rule }}"
+        rw_rule: "{{ item.rw_rule }}"
+        protocol: "{{ item.protocol }}"
+      loop: "{{ export_policy_rules.results }}"
+
+    - name: Apply export policy name to the volumes on SVM2
+      netapp.ontap.na_ontap_volume:
+        hostname: "{{ target_host }}"
+        username: "{{ target_username }}"
+        password: "{{ target_password }}"
+        vserver: "{{ target_vserver }}"
+        name: "{{ item.name }}"
+        export_policy: "{{ item.export_policy }}"
+      loop: "{{ filtered_volumes }}"
+
+    - name: Create CIFS shares on SVM2
+      netapp.ontap.na_ontap_cifs_share:
+        hostname: "{{ target_host }}"
+        username: "{{ target_username }}"
+        password: "{{ target_password }}"
+        vserver: "{{ target_vserver }}"
+        share_name: "{{ item.share_name }}"
+        path: "{{ item.path }}"
+        description: "{{ item.description }}"
+      loop: "{{ cifs_shares.results }}"
+
+    - name: Set CIFS share access control on SVM2
+      netapp.ontap.na_ontap_cifs_acl:
+        hostname: "{{ target_host }}"
+        username: "{{ target_username }}"
+        password: "{{ target_password }}"
+        vserver: "{{ target_vserver }}"
+        share_name: "{{ item.share_name }}"
+        user_or_group: "{{ item.user_or_group }}"
+        access: "{{ item.access }}"
+      loop: "{{ cifs_shares.results }}"
