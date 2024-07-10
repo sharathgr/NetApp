@@ -2,24 +2,23 @@
 - name: Update SnapMirror relationships for all volumes from SVM2
   hosts: localhost
   gather_facts: no
-  vars:
-    target_host: XYZ
-    target_vserver: SVM2
+  vars_files:
+    - vars.yml
   tasks:
-    - name: Login to target host XYZ
+    - name: Login to source host ABC
       netapp.ontap.na_ontap_command:
-        hostname: "{{ target_host }}"
-        username: "{{ target_username }}"
-        password: "{{ target_password }}"
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
         command: 'version'
-      register: login_target
+      register: login_source
 
-    - name: Collect all volumes from SVM2
+    - name: Collect all volumes from SVM1
       netapp.ontap.na_ontap_volume:
-        hostname: "{{ target_host }}"
-        username: "{{ target_username }}"
-        password: "{{ target_password }}"
-        vserver: "{{ target_vserver }}"
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        vserver: "{{ source_vserver }}"
       register: volumes
 
     - name: Filter volumes starting with dat_ and not containing root
@@ -27,7 +26,18 @@
         filtered_volumes: >-
           {{ volumes.results | selectattr('name', 'match', '^dat_.*') | rejectattr('name', 'search', 'root') | list }}
 
-    - name: Update SnapMirror relationships for filtered volumes
+    - name: Create snapshot "failover" on SVM1 volumes
+      netapp.ontap.na_ontap_snapshot:
+        hostname: "{{ source_host }}"
+        username: "{{ source_username }}"
+        password: "{{ source_password }}"
+        vserver: "{{ source_vserver }}"
+        volume: "{{ item.name }}"
+        snapshot: "failover"
+        state: present
+      loop: "{{ filtered_volumes }}"
+
+    - name: Update SnapMirror relationships for filtered volumes on SVM2
       netapp.ontap.na_ontap_snapmirror:
         hostname: "{{ target_host }}"
         username: "{{ target_username }}"
