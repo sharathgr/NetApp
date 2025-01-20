@@ -1,0 +1,18 @@
+flowchart TD
+  A(("Start Process")) --> n1(["Trigger Automation from Ansible Tower"])
+  n1 --> n2(["Ansible Tower pulls the playbook from GitHub"])
+  n2 --> n3(["Ansible Tower Login to NetApp Storage"])
+  n3 --> n4{{"Execution successful?"}} -- Yes --> n5(["Executes automation tasks"])
+  n4 -- No --> n6(["Log error and exit"])
+  n5 --> n7(["Ansible Tower logs out from the NetApp Storage system"])
+  n7 --> B(("End Process"))
+  n6 --> B
+  style A fill:#C8E6C9,stroke-width:4px,stroke-dasharray: 0,stroke:#00C853
+  style n1 stroke-width:4px,stroke-dasharray: 0,fill:#C8E6C9,stroke:#00C853
+  style n2 stroke-width:4px,stroke-dasharray: 0,fill:#BBDEFB,stroke:#2962FF
+  style n3 stroke-width:4px,stroke-dasharray: 0,fill:#BBDEFB,stroke:#2962FF
+  style n4 stroke-width:4px,stroke-dasharray: 0,stroke:#FF6D00,fill:#FFE0B2
+  style n5 stroke-width:4px,stroke-dasharray: 0,fill:#BBDEFB,stroke:#2962FF
+  style n6 stroke-width:4px,stroke-dasharray: 0,fill:#FFEBEE,stroke:#D32F2F
+  style n7 stroke-width:4px,stroke-dasharray: 0,fill:#BBDEFB,stroke:#2962FF
+  style B fill:#C8E6C9,stroke-width:4px,stroke-dasharray: 0,stroke:#00C853
